@@ -1,149 +1,123 @@
-# OpenWrt for TP-Link EX520v
+# TP-Link EX520v için OpenWrt
 
-Fully open-source OpenWrt support for the TP-Link EX520v (Türk Telekom AX3000,
-MT7981B + MT7976, 512 MiB SPI-NAND, 512 MiB RAM). Every image can be rebuilt
-from this repository: upstream OpenWrt at a pinned commit, one device-support
-patch, and pinned package feeds.
+TP-Link EX520v (Türk Telekom AX3000, MT7981B + MT7976, 512 MiB SPI-NAND,
+512 MiB RAM) için tamamen açık kaynaklı OpenWrt desteği. Tüm imajlar bu
+depodan yeniden derlenebilir: sabitlenmiş bir upstream OpenWrt commit'i, tek
+bir cihaz desteği patch'i ve sabitlenmiş paket feed'leri.
 
-> **Status: experimental.** See "Tested" below for what has been verified on
-> real hardware.
+> **Durum: deneysel.** Gerçek donanımda neyin doğrulandığı aşağıdaki
+> "Test edilenler" bölümünde.
 
-[Türkçe](#türkçe)
+## Neden
 
-## Why
+Bu router için zaten bir port var, ama yalnızca hazır imaj olarak dağıtılıyor:
+device tree, patch ya da derleme tarifi yok. Kurulum aracı ayrıca stok
+firmware'in yedek slotunu ve birkaç TP-Link veri bölümünü formatlıyor. Bu
+yüzden stoka dönmek için seri konsol gerekiyor.
 
-A port for this router already exists, but it ships as prebuilt images only:
-no device tree, no patches, no build recipe. Its installer also formats the
-stock firmware's backup slot and several TP-Link data partitions, so going
-back to stock needs a serial console.
+Bu depo üç noktada farklı:
 
-This repository differs in three ways:
+- **Yalnızca kaynak.** `patches/` cihaz desteğini (device tree, imaj tarifi,
+  board betikleri) içerir. `build.sh` ve CI workflow'u her şeyi yeniden
+  derler.
+- **UART gerekmez.** Kurulum, stok firmware'deki root shell'i ve
+  bootloader'ın kendi A/B slot mekanizmasını kullanır.
+- **Geri alınabilir.** OpenWrt, TP-Link'in `ubi0` dediği slota kurulur. Stok
+  firmware tüm TP-Link bölümleriyle (kalibrasyon, ayarlar, yedekler) birlikte
+  `ubi1` slotunda dokunulmadan kalır.
 
-- **Source only.** `patches/` holds the device support (device tree, image
-  recipe, board scripts). `build.sh` and the CI workflow rebuild everything.
-- **No UART needed.** Installation uses a root shell on the stock firmware
-  and the bootloader's own A/B slot mechanism.
-- **Reversible.** OpenWrt lives in the slot TP-Link calls `ubi0`. The stock
-  firmware stays untouched in slot `ubi1`, together with all TP-Link
-  partitions (calibration, config, backups).
+## Stok bootloader nasıl çalışır
 
-## How the stock bootloader works
+Stok açılış zinciri şöyledir: BL2 → birinci U-Boot → ikinci U-Boot (seçili
+slotun `uboot` volume'u) → kernel. Birinci U-Boot, TP-Link'in GPL kaynağıyla
+(`board/mediatek/common/ubi_helper.c`, `CONFIG_TP_FIRST_UBOOT`) örtüşür:
 
-The stock boot chain is BL2 → first U-Boot → second U-Boot (`uboot` volume
-of the selected slot) → kernel. The first U-Boot matches TP-Link's GPL
-source (`board/mediatek/common/ubi_helper.c`, `CONFIG_TP_FIRST_UBOOT`):
+- U-Boot env değişkeni `tp_boot_idx` slotu seçer: `1` MTD `ubi1` demektir,
+  başka her değer MTD `ubi0` demektir.
+- Birinci U-Boot o slotun `uboot`, `rootfs` ve `kernel` volume'larını okur.
+  Bunlardan biri yoksa, boşsa, güncelleme yarıda kalmışsa ya da
+  okunamıyorsa diğer slota geçer ve `tp_boot_idx`'i kaydeder.
+- Kernel açılıp sonra takılırsa diğer slota **dönmez**. Bu modelde açılış
+  sayacı ve web kurtarma yoktur.
+- İkinci U-Boot, `kernel` volume'undaki FIT imajını `bootm` ile başlatır.
+  İmzasız FIT imajlarını kabul eder ve 64 MiB'a kadar açılmış kernel'e izin
+  verir (`CONFIG_SYS_BOOTM_LEN`).
 
-- The U-Boot env variable `tp_boot_idx` selects the slot: `1` means MTD
-  `ubi1`, anything else means MTD `ubi0`.
-- The first U-Boot reads the `uboot`, `rootfs` and `kernel` volumes of that
-  slot. If any of them is missing, empty, interrupted mid-update or
-  unreadable, it switches to the other slot and saves `tp_boot_idx`.
-- It does **not** fall back when a kernel starts and then hangs. There is no
-  boot counter and no web recovery on this model.
-- The second U-Boot runs `bootm` on the FIT image from the `kernel` volume.
-  It accepts unsigned FIT images and allows up to 64 MiB of decompressed
-  kernel (`CONFIG_SYS_BOOTM_LEN`).
+TP-Link'in kendi `/usr/bin/do_upgrade.sh` betiği pasif slotu tam olarak bu
+şekilde günceller: `ubiformat`, statik `uboot`/`kernel`/`rootfs` volume'ları,
+ardından `fw_setenv tp_boot_idx`. Buradaki kurulum betiği de aynısını yapar.
 
-TP-Link's own `/usr/bin/do_upgrade.sh` upgrades the inactive slot in exactly
-this way: `ubiformat`, static `uboot`/`kernel`/`rootfs` volumes, then
-`fw_setenv tp_boot_idx`. The installer here does the same.
+## Güvenli kurulum
 
-## Safe installation
+Kurulum adımlara bölünmüştür ve her adım bir geri dönüş yolu bırakır.
 
-The install is split into steps, and each step leaves a way back.
+1. **Yedek** (`install/backup-stock.sh`, bilgisayarda çalışır). Tüm MTD
+   bölümlerini SSH üzerinden okur. Bu yedeği sakla: `misc_ro`, bu cihaza
+   özel Wi-Fi kalibrasyonunu ve MAC adreslerini tutar.
+2. **RAM'den deneme açılışı** (`install/stock-install-trial.sh`, stokta
+   çalışır). Initramfs imajını `ubi0` slotuna yazar, ardından
+   `ex520v_trial=1` ayarlar ve `tp_boot_idx`'i temizler. Sonraki açılışta
+   OpenWrt'nin ilk preinit adımı `tp_boot_idx=1`'i yeniden ayarlar
+   (`files/lib/preinit/05_ex520v_trial`). Bu sayede kurulumu onaylayana kadar
+   routerı kapatıp açmak her zaman stoka döndürür.
+3. **Flash'a yazma** (`install/openwrt-trial-to-flash.sh`, deneme
+   OpenWrt'sinde çalışır). Sysupgrade imajını `ubi0` slotuna yazar ve yeni
+   kök dosya sisteminin bağlanabildiğini kontrol eder. Sonraki açılış hâlâ
+   bir deneme açılışıdır.
+4. **Onay** (`install/openwrt-confirm.sh`, flash'tan açılmış OpenWrt'de
+   çalışır). `ex520v_trial` ve `tp_boot_idx`'i temizler.
 
-1. **Backup** (`install/backup-stock.sh`, run on a PC). Reads every MTD
-   partition over SSH. Keep this backup: `misc_ro` holds this unit's Wi-Fi
-   calibration and MAC addresses.
-2. **Trial boot from RAM** (`install/stock-install-trial.sh`, run on stock).
-   Writes the initramfs image into slot `ubi0`, then sets `ex520v_trial=1`
-   and clears `tp_boot_idx`. On its next boot, OpenWrt's first preinit step
-   sets `tp_boot_idx=1` again (`files/lib/preinit/05_ex520v_trial`). A power
-   cycle therefore always returns to stock until you confirm the install.
-3. **Write to flash** (`install/openwrt-trial-to-flash.sh`, run on the trial
-   OpenWrt). Writes the sysupgrade image into slot `ubi0` and checks that the
-   new root filesystem mounts. The next boot is still a trial boot.
-4. **Confirm** (`install/openwrt-confirm.sh`, run on OpenWrt booted from
-   flash). Clears `ex520v_trial` and `tp_boot_idx`.
-
-To return to stock at any time from OpenWrt:
+OpenWrt'den istediğin an stoka dönmek için:
 
 ```sh
 fw_setenv ex520v_trial; fw_setenv tp_boot_idx 1; reboot
 ```
 
-**Remaining risk:** if a kernel crashes before userspace starts, the router
-keeps booting slot `ubi0`, and only a serial console (UART) can recover it.
-The trial boot in step 2 exists to catch this with a RAM-only image before
-anything is written for real. BL2, FIP and the bootloader env layout are
-never modified, so the device can always be recovered over UART.
+**Kalan risk:** Kernel, userspace başlamadan çökerse router `ubi0` slotundan
+açılmaya devam eder ve yalnızca seri konsol (UART) ile kurtarılabilir. 2.
+adımdaki deneme açılışı, flash'a kalıcı bir şey yazılmadan önce bu durumu
+yalnızca RAM'de çalışan bir imajla yakalamak için vardır. BL2, FIP ve
+bootloader env düzeni hiç değiştirilmez, bu yüzden cihaz her zaman UART ile
+kurtarılabilir.
 
-## Hardware notes
+## Donanım notları
 
 | | |
 |---|---|
 | SoC | MediaTek MT7981B, 2× Cortex-A53 |
-| Flash | 512 MiB Micron SPI-NAND with NMBM (managed area: last 128 blocks) |
-| Switch | MT7531 on GMAC0 (2500base-x). Ports: lan1 = 3, lan2 = 2, lan3 = 1 |
-| WAN | GMAC1 with the internal GbE PHY |
-| Wi-Fi calibration | `misc_ro` UBIFS, file `0x00440000` (first 4 KiB) |
-| MAC base | `misc_ro` UBIFS, file `0x0038F1E0`. WAN +1, LAN +5, 2.4 GHz +6, 5 GHz +7, the same offsets stock uses |
-| Not supported | FXS phone port (Si3218x SLIC) |
+| Flash | 512 MiB Micron SPI-NAND, NMBM ile (yönetilen alan: son 128 blok) |
+| Switch | GMAC0'da MT7531 (2500base-x). Portlar: lan1 = 3, lan2 = 2, lan3 = 1 |
+| WAN | Dahili GbE PHY ile GMAC1 |
+| Wi-Fi kalibrasyonu | `misc_ro` UBIFS, `0x00440000` dosyası (ilk 4 KiB) |
+| MAC tabanı | `misc_ro` UBIFS, `0x0038F1E0` dosyası. WAN +1, LAN +5, 2.4 GHz +6, 5 GHz +7; stokla aynı offset'ler |
+| Desteklenmeyen | FXS telefon portu (Si3218x SLIC) |
 
-Türk Telekom fibre uses PPPoE on VLAN 35 (`eth1.35`).
+Türk Telekom fiber, VLAN 35 üzerinden PPPoE kullanır (`eth1.35`).
 
-## Building
-
-```sh
-./build.sh            # Debian/Ubuntu host with OpenWrt build dependencies
-```
-
-The images land in `openwrt/bin/targets/mediatek/filogic/`:
-
-- `*-initramfs-kernel.bin`: the trial image
-- `*-squashfs-sysupgrade.bin`: the flash image
-
-## Tested
-
-Verified on a live unit (2026-09-26):
-
-- [x] Trial boot from RAM (initramfs)
-- [x] Flash boot from `ubi0`, persistent `ubifs` overlay on `rootfs_data`
-- [x] WAN: PPPoE over `eth1.35` (Türk Telekom fibre), public IP + DNS
-- [x] Wi-Fi 2.4 GHz (ch1/HE20) and 5 GHz (ch36/HE80) up with factory calibration
-- [x] Return to stock by power-cycle while `ex520v_trial=1`, and via `tp_boot_idx=1`
-- [ ] LAN1-LAN3 throughput, LEDs, buttons, USB (not yet exercised)
-
----
-
-## Türkçe
-
-TP-Link EX520v (Türk Telekom AX3000) için tamamen açık kaynaklı OpenWrt
-desteği. Tüm imajlar bu depodan yeniden derlenebilir: sabitlenmiş bir
-upstream OpenWrt commit'i, tek bir cihaz desteği patch'i ve sabitlenmiş
-paket feed'leri.
-
-- **Kurulum için UART gerekmez.** Stok firmware'deki root erişimi ve
-  bootloader'ın kendi A/B slot mekanizması kullanılır.
-- **Geri alınabilir.** OpenWrt `ubi0` slotuna kurulur. Stok firmware `ubi1`
-  slotunda, TP-Link'in tüm bölümleriyle birlikte (kalibrasyon, ayarlar,
-  yedekler) dokunulmadan kalır.
-- **Deneme açılışı.** OpenWrt her açılışta ilk iş olarak bir sonraki açılışı
-  stok slota yönlendirir. Kurulumu onaylayana kadar routerı kapatıp açmak
-  stok firmware'e döndürür.
-- **Kalan risk:** Kernel, userspace'e geçmeden çökerse kurtarmak için UART
-  gerekir. İlk deneme bu yüzden flash'a hiçbir şey kalıcı yazmadan, RAM'den
-  açılan bir imajla yapılır.
-
-Stoka dönmek için:
+## Derleme
 
 ```sh
-fw_setenv ex520v_trial; fw_setenv tp_boot_idx 1; reboot
+./build.sh            # OpenWrt derleme bağımlılıkları kurulu Debian/Ubuntu
 ```
 
-Telefon (FXS) portu desteklenmez.
+İmajlar `openwrt/bin/targets/mediatek/filogic/` altına düşer:
 
-## License
+- `*-initramfs-kernel.bin`: deneme imajı
+- `*-squashfs-sysupgrade.bin`: flash imajı
 
-The device support is GPL-2.0-or-later (device tree: GPL-2.0-or-later OR
-MIT), like upstream OpenWrt. The install scripts are GPL-2.0-or-later.
+## Test edilenler
+
+Çalışan bir cihazda doğrulandı (2026-09-26):
+
+- [x] RAM'den deneme açılışı (initramfs)
+- [x] `ubi0`'dan flash açılışı, `rootfs_data` üzerinde kalıcı `ubifs` overlay
+- [x] WAN: `eth1.35` üzerinden PPPoE (Türk Telekom fiber), public IP + DNS
+- [x] Fabrika kalibrasyonuyla Wi-Fi 2.4 GHz (ch1/HE20) ve 5 GHz (ch36/HE80)
+- [x] `ex520v_trial=1` iken kapatıp açarak ve `tp_boot_idx=1` ile stoka dönüş
+- [ ] LAN1-LAN3 hızı, LED'ler, butonlar, USB (henüz denenmedi)
+
+## Lisans
+
+Cihaz desteği, upstream OpenWrt gibi GPL-2.0-or-later lisanslıdır (device
+tree: GPL-2.0-or-later OR MIT). Kurulum betikleri GPL-2.0-or-later
+lisanslıdır.
