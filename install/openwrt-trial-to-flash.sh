@@ -17,13 +17,15 @@ set -e
 IMG="$1"
 W=/tmp/ex520v-img
 MNT=/tmp/ex520v-rootfs
+UBIDEV=0            # set to the attached ubi0-slot device number below
 
 log() { echo "[ex520v] $*"; }
 die() { log "ERROR: $*"; exit 1; }
 
 vol_id() {
 	local v
-	for v in /sys/class/ubi/ubi0/ubi0_*; do
+	for v in /sys/class/ubi/ubi${UBIDEV}/ubi${UBIDEV}_*; do
+		[ -e "$v/name" ] || continue
 		[ "$(cat "$v/name")" = "$1" ] && { echo "${v##*_}"; return 0; }
 	done
 	return 1
@@ -38,11 +40,11 @@ wait_node() {
 write_vol() {
 	local name="$1" file="$2" size id
 	size=$(wc -c < "$file")
-	ubimkvol /dev/ubi0 -N "$name" -s "$size" >/dev/null
+	ubimkvol /dev/ubi$UBIDEV -N "$name" -s "$size" >/dev/null
 	id=$(vol_id "$name") || die "volume $name not created"
-	wait_node "/dev/ubi0_$id"
-	ubiupdatevol "/dev/ubi0_$id" "$file"
-	[ "$(head -c "$size" "/dev/ubi0_$id" | sha256sum | cut -d' ' -f1)" = \
+	wait_node "/dev/ubi${UBIDEV}_$id"
+	ubiupdatevol "/dev/ubi${UBIDEV}_$id" "$file"
+	[ "$(head -c "$size" "/dev/ubi${UBIDEV}_$id" | sha256sum | cut -d' ' -f1)" = \
 	  "$(sha256sum < "$file" | cut -d' ' -f1)" ] || die "read-back mismatch on $name"
 	log "wrote $name (volume $id, $size bytes)"
 }
@@ -55,10 +57,26 @@ write_vol() {
 [ "$(fw_printenv -n tp_boot_idx 2>/dev/null)" = "1" ] || die "stock fallback (tp_boot_idx=1) is not armed"
 [ "$(awk '$2 == "/" { print $3; exit }' /proc/mounts)" != "squashfs" ] ||
 	die "not running from RAM (initramfs)"
-grep -q '"ubi0"' /proc/mtd || die "MTD ubi0 missing"
-[ "$(cat /sys/class/ubi/ubi0/mtd_num)" = "$(grep '"ubi0"' /proc/mtd | cut -d: -f1 | sed 's/^mtd//')" ] ||
-	die "UBI device 0 is not slot ubi0"
-vol_id uboot >/dev/null || die "slot ubi0 has no uboot volume"
+
+# Resolve and attach slot ubi0 by its MTD index (in initramfs /dev/ubi0 may be
+# another partition such as misc_ro, whichever attached first).
+MTD=$(grep '"ubi0"' /proc/mtd | cut -d: -f1 | sed 's/^mtd//')
+[ -n "$MTD" ] || die "MTD ubi0 missing"
+UBIDEV=""
+for u in /sys/class/ubi/ubi[0-9]*; do
+	[ -e "$u/mtd_num" ] || continue
+	if [ "$(cat "$u/mtd_num")" = "$MTD" ]; then UBIDEV=$(basename "$u" | sed 's/^ubi//'); break; fi
+done
+if [ -z "$UBIDEV" ]; then
+	ubiattach -m "$MTD" >/dev/null 2>&1 || die "cannot attach mtd$MTD"
+	for u in /sys/class/ubi/ubi[0-9]*; do
+		[ -e "$u/mtd_num" ] || continue
+		[ "$(cat "$u/mtd_num")" = "$MTD" ] && UBIDEV=$(basename "$u" | sed 's/^ubi//')
+	done
+fi
+[ -n "$UBIDEV" ] || die "slot ubi0 not attached"
+log "slot ubi0 is UBI device $UBIDEV (mtd$MTD)"
+vol_id uboot >/dev/null || die "slot ubi0 has no uboot volume (wrong device?)"
 
 sysupgrade -T "$IMG" || die "sysupgrade image check failed"
 
@@ -69,27 +87,29 @@ R="$W/sysupgrade-tplink_ex520v/root"
 [ -s "$K" ] && [ -s "$R" ] || die "kernel/root missing in image"
 
 # --- write -------------------------------------------------------------------
-for b in /dev/ubiblock0_*; do
-	[ -e "$b" ] && ubiblock -r "/dev/ubi0_${b##*_}"
+for b in /dev/ubiblock${UBIDEV}_*; do
+	[ -e "$b" ] && ubiblock -r "/dev/ubi${UBIDEV}_${b##*_}"
 done
 for name in kernel rootfs rootfs_data; do
-	vol_id "$name" >/dev/null && ubirmvol /dev/ubi0 -N "$name"
+	vol_id "$name" >/dev/null && ubirmvol /dev/ubi$UBIDEV -N "$name"
 done
 
 write_vol kernel "$K"
 write_vol rootfs "$R"
-ubimkvol /dev/ubi0 -N rootfs_data -m >/dev/null
+ubimkvol /dev/ubi$UBIDEV -N rootfs_data -m >/dev/null
 log "created rootfs_data (volume $(vol_id rootfs_data))"
 
 # --- verify the new root filesystem mounts ------------------------------------
 id=$(vol_id rootfs)
-ubiblock -c "/dev/ubi0_$id"
-wait_node "/dev/ubiblock0_$id"
+# The kernel auto-creates a ubiblock for a volume named "rootfs"; only create
+# it if it is not already there (ubiblock -c returns EEXIST otherwise).
+[ -e "/dev/ubiblock${UBIDEV}_$id" ] || ubiblock -c "/dev/ubi${UBIDEV}_$id"
+wait_node "/dev/ubiblock${UBIDEV}_$id"
 mkdir -p "$MNT"
-mount -t squashfs -o ro "/dev/ubiblock0_$id" "$MNT"
+mount -t squashfs -o ro "/dev/ubiblock${UBIDEV}_$id" "$MNT"
 grep -q "^DISTRIB_TARGET='mediatek/filogic'" "$MNT/etc/openwrt_release" || die "unexpected rootfs content"
 umount "$MNT"
-ubiblock -r "/dev/ubi0_$id"
+ubiblock -r "/dev/ubi${UBIDEV}_$id"
 
 # --- boot slot ubi0 next, still as a trial ------------------------------------
 fw_setenv tp_boot_idx
