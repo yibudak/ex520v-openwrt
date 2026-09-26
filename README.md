@@ -12,7 +12,9 @@ derleyebilirsin.
 **Arayüz Türkçe gelir.** Yönetim paneli (LuCI) ilk açılışta Türkçe açılır,
 ayar yapmana gerek yok. İstersen Sistem → Sistem → Dil menüsünden değiştirebilirsin.
 
-<!-- Ekran görüntüsü: docs/screenshot.png -->
+<p align="center">
+  <img src="docs/screenshot.png" alt="OpenWrt LuCI durum ekranı (Türkçe)" width="100%">
+</p>
 
 > **Durum:** deneysel. Neyin denendiğini aşağıdaki listede görebilirsin.
 
