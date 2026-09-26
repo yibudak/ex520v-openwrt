@@ -9,6 +9,9 @@ Bu depoyla TP-Link EX520v'ye (Türk Telekom AX3000) OpenWrt kurabilirsin.
 betikleri. Hazır imajları GitHub Actions derler, istersen sen de
 derleyebilirsin.
 
+**Arayüz Türkçe gelir.** Yönetim paneli (LuCI) ilk açılışta Türkçe açılır,
+ayar yapmana gerek yok. İstersen Sistem → Sistem → Dil menüsünden değiştirebilirsin.
+
 <!-- Ekran görüntüsü: docs/screenshot.png -->
 
 > **Durum:** deneysel. Neyin denendiğini aşağıdaki listede görebilirsin.
@@ -21,6 +24,7 @@ derleyebilirsin.
 - [x] Flash'tan açılış, ayarlar yeniden başlatmada korunuyor
 - [x] Türk Telekom fiber: VLAN 35 üzerinden PPPoE, public IP ve DNS
 - [x] Fabrika kalibrasyonuyla 2.4 GHz ve 5 GHz Wi-Fi
+- [x] Türkçe yönetim paneli (LuCI)
 - [x] Stok firmware'e geri dönüş
 - [ ] LAN hızı, LED'ler, butonlar, USB (henüz denenmedi)
 
