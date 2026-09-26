@@ -105,12 +105,14 @@ The images land in `openwrt/bin/targets/mediatek/filogic/`:
 
 ## Tested
 
-- [ ] Trial boot from RAM
-- [ ] Flash boot, overlay on `rootfs_data`
-- [ ] Ethernet: WAN, LAN1 to LAN3
-- [ ] Wi-Fi 2.4 GHz and 5 GHz with factory calibration
-- [ ] LEDs, buttons, USB
-- [ ] Return to stock with `tp_boot_idx=1`
+Verified on a live unit (2026-09-26):
+
+- [x] Trial boot from RAM (initramfs)
+- [x] Flash boot from `ubi0`, persistent `ubifs` overlay on `rootfs_data`
+- [x] WAN: PPPoE over `eth1.35` (Türk Telekom fibre), public IP + DNS
+- [x] Wi-Fi 2.4 GHz (ch1/HE20) and 5 GHz (ch36/HE80) up with factory calibration
+- [x] Return to stock by power-cycle while `ex520v_trial=1`, and via `tp_boot_idx=1`
+- [ ] LAN1-LAN3 throughput, LEDs, buttons, USB (not yet exercised)
 
 ---
 
