@@ -1,3 +1,4 @@
 /openwrt/
 /out/
 *.bin
+.DS_Store

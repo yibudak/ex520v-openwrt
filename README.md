@@ -2,11 +2,30 @@
 
 TP-Link EX520v (Türk Telekom AX3000, MT7981B + MT7976, 512 MiB SPI-NAND,
 512 MiB RAM) için tamamen açık kaynaklı OpenWrt desteği. Tüm imajlar bu
-depodan yeniden derlenebilir: sabitlenmiş bir upstream OpenWrt commit'i, tek
+depodan yeniden derlenebilir: sabitlenmiş bir upstream OpenWrt sürümü
+(`openwrt-25.12`, kernel 6.12), tek
 bir cihaz desteği patch'i ve sabitlenmiş paket feed'leri.
 
 > **Durum: deneysel.** Gerçek donanımda neyin doğrulandığı aşağıdaki
 > "Test edilenler" bölümünde.
+
+## Varsayılan erişim
+
+İlk açılışta Wi-Fi **otomatik açık** gelir; kablo gerekmez:
+
+- SSID: **`OpenWrt-EX520v`** (2.4 GHz + 5 GHz)
+- Wi-Fi parolası: **`openwrt-ex520v`** (WPA2)
+- Yönetim: `http://192.168.1.1` (LuCI) — ilk açılışta root parolası boştur,
+  hemen bir parola belirle.
+
+> ⚠️ **Güvenlik:** Bu imajı kuran herkeste Wi-Fi SSID'i ve parolası **aynıdır**.
+> İlk iş olarak LuCI → Network → Wireless'tan SSID ve parolayı, System →
+> Administration'dan root parolasını değiştir. Değiştirene kadar Wi-Fi'ın
+> herkese açık bir ortak parolası vardır.
+
+Türk Telekom fiber için WAN, PPPoE + VLAN 35 (`eth1.35`) olarak önceden
+ayarlıdır; yalnızca LuCI → Network → Interfaces → WAN'da kullanıcı adı ve
+parolanı girmen yeterlidir.
 
 ## Neden
 
@@ -104,6 +123,30 @@ Türk Telekom fiber, VLAN 35 üzerinden PPPoE kullanır (`eth1.35`).
 
 - `*-initramfs-kernel.bin`: deneme imajı
 - `*-squashfs-sysupgrade.bin`: flash imajı
+
+## Güven ve doğrulama
+
+Amaç, "benim derlediğim binary'e güven" değil; **binary'e hiç güvenmek
+zorunda kalmaman.**
+
+- **Kaynak açık ve küçük.** Cihaza özel her şey `patches/` (device tree +
+  board betikleri, ~360 satır) ve `files/` içinde; dakikalar içinde okunur.
+  Geri kalanı olduğu gibi upstream OpenWrt.
+- **Girdiler sabitli.** `build.sh` upstream OpenWrt commit'ini, `config/feeds.conf`
+  ise paket feed commit'lerini sabitler. "Şu anki her neyse" değil, tam belirli
+  kaynak derlenir.
+- **Kendin derle.** `./build.sh` ile aynı imajı sen üretirsin. Kimseye
+  bağımlı değilsin.
+- **Yeniden üretilebilir.** Kernel derleyici kimliği (`BUILD_USER/DOMAIN`)
+  sabitlendiği için aynı kaynaktan çıkan imaj derleyene göre değişmez;
+  yerelde derleyip release'in sha256'sıyla karşılaştırabilirsin.
+- **CI açıkta derler.** GitHub Actions imajı bu repodan üretir, build log'u
+  herkese açıktır ve release dosyalarına **build provenance attestation**
+  eklenir: `gh attestation verify <dosya> -R <owner>/<repo>` ile dosyanın bu
+  workflow tarafından bu kaynaktan üretildiği kriptografik doğrulanır.
+- **Nihai hedef upstream.** Cihaz desteği OpenWrt'ye merge edilirse, resmi
+  OpenWrt imajı (OpenWrt'nin kendi altyapısı derler) yeterli olur; bu repoya
+  gerek kalmaz.
 
 ## Test edilenler
 

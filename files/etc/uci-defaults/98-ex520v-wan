@@ -1,0 +1,13 @@
+#!/bin/sh
+# local bring-up: pre-set WAN as TT PPPoE on VLAN 35 with EMPTY credentials,
+# so the user only types username/password in LuCI. Runs once (uci-defaults).
+uci -q batch <<-UCI
+	set network.wan.proto=pppoe
+	set network.wan.device=eth1.35
+	set network.wan.username=
+	set network.wan.password=
+	set network.wan.ipv6=auto
+	set network.wan.mtu=1492
+UCI
+uci commit network
+exit 0

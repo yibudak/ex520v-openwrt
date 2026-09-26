@@ -7,13 +7,13 @@
 set -e
 
 OPENWRT_URL=https://github.com/openwrt/openwrt.git
-OPENWRT_COMMIT=6c12b87ffc36974b3b24ebc767e8e92023351093
+OPENWRT_COMMIT=44b73b738d18e424d86a34be3fb1d93cf3d718d6   # openwrt-25.12
 
 TOP=$(cd "$(dirname "$0")" && pwd)
 JOBS="${1:-$(nproc)}"
 
 if [ ! -d "$TOP/openwrt/.git" ]; then
-	git clone --filter=blob:none "$OPENWRT_URL" "$TOP/openwrt"
+	git clone "$OPENWRT_URL" "$TOP/openwrt"
 fi
 cd "$TOP/openwrt"
 git checkout -q "$OPENWRT_COMMIT"

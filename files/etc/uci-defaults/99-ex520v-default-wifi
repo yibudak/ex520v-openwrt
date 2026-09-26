@@ -1,0 +1,25 @@
+#!/bin/sh
+# Default Wi-Fi so a fresh install is reachable over the air (no cable needed).
+# SECURITY: every EX520v flashed with this image ships the SAME Wi-Fi password.
+# Change SSID and password immediately in LuCI (Network > Wireless) or here.
+[ "$(uci -q get wireless.@wifi-device[0])" ] || exit 0
+
+for dev in $(uci show wireless | sed -n "s/^wireless\.\([^.=]*\)=wifi-device$/\1/p"); do
+	band=$(uci -q get wireless.$dev.band)
+	uci set wireless.$dev.disabled=0
+	uci set wireless.$dev.country=TR
+	case "$band" in
+	2g) uci set wireless.$dev.channel=1;  uci set wireless.$dev.htmode=HE20 ;;
+	5g) uci set wireless.$dev.channel=36; uci set wireless.$dev.htmode=HE80 ;;
+	esac
+done
+
+for i in $(uci show wireless | sed -n "s/^wireless\.\([^.=]*\)=wifi-iface$/\1/p"); do
+	uci set wireless.$i.ssid="OpenWrt-EX520v"
+	uci set wireless.$i.encryption="psk2"
+	uci set wireless.$i.key="openwrt-ex520v"
+	uci set wireless.$i.disabled=0
+done
+
+uci commit wireless
+exit 0

@@ -1,6 +1,6 @@
-From 394dc33c155fe75a3eee2dec93212061cdbfee39 Mon Sep 17 00:00:00 2001
+From 48a659b8700cb63f1caf4b63403718bddab3f09e Mon Sep 17 00:00:00 2001
 From: Yigit Budak <yibudak@gmail.com>
-Date: Sat, 26 Sep 2026 18:10:35 +0300
+Date: Sat, 26 Sep 2026 19:25:07 +0300
 Subject: [PATCH] mediatek: filogic: add TP-Link EX520v support
 
 ---
@@ -12,15 +12,15 @@ Subject: [PATCH] mediatek: filogic: add TP-Link EX520v support
  .../etc/hotplug.d/ieee80211/11_fix_wifi_mac   |   5 +
  .../base-files/lib/preinit/09_mount_cfg_part  |   3 +
  .../base-files/lib/upgrade/platform.sh        |   1 +
- target/linux/mediatek/image/filogic.mk        |  15 +
- 9 files changed, 364 insertions(+)
+ target/linux/mediatek/image/filogic.mk        |  14 +
+ 9 files changed, 363 insertions(+)
  create mode 100644 target/linux/mediatek/dts/mt7981b-tplink-ex520v.dts
 
 diff --git a/package/boot/uboot-tools/uboot-envtools/files/mediatek_filogic b/package/boot/uboot-tools/uboot-envtools/files/mediatek_filogic
-index 3ea821a117..62a5423112 100644
+index fac81e7d69..67c0e2559b 100644
 --- a/package/boot/uboot-tools/uboot-envtools/files/mediatek_filogic
 +++ b/package/boot/uboot-tools/uboot-envtools/files/mediatek_filogic
-@@ -127,6 +127,7 @@ mercusys,mr90x-v1|\
+@@ -122,6 +122,7 @@ mercusys,mr90x-v1|\
  routerich,ax3000|\
  routerich,ax3000-v1|\
  tenbay,wr3000k|\
@@ -358,10 +358,10 @@ index 0000000000..34fe6256f8
 +	status = "okay";
 +};
 diff --git a/target/linux/mediatek/filogic/base-files/etc/board.d/01_leds b/target/linux/mediatek/filogic/base-files/etc/board.d/01_leds
-index b34a9f1d4f..dc28928ffe 100644
+index f04b5673e2..a8d50e632b 100644
 --- a/target/linux/mediatek/filogic/base-files/etc/board.d/01_leds
 +++ b/target/linux/mediatek/filogic/base-files/etc/board.d/01_leds
-@@ -335,6 +335,13 @@ tplink,be450-ubi)
+@@ -317,6 +317,13 @@ tplink,be450)
  	ucidef_set_led_netdev "wlan2g" "WLAN2G" "blue:wlan-2ghz" "phy0.0-ap0"
  	ucidef_set_led_netdev "wlan5g" "WLAN5G" "blue:wlan-5ghz" "phy0.1-ap0"
  	;;
@@ -376,18 +376,18 @@ index b34a9f1d4f..dc28928ffe 100644
  	ucidef_set_led_netdev "port2-green-act" "port-2" "green:port2_act" "port2" "link tx rx"
  	ucidef_set_led_netdev "port1-green-act" "port-1" "green:sfp" "port1" "link tx rx"
 diff --git a/target/linux/mediatek/filogic/base-files/etc/board.d/02_network b/target/linux/mediatek/filogic/base-files/etc/board.d/02_network
-index 31886924f0..f273558d0f 100644
+index b60e3062dd..0d7a238f97 100644
 --- a/target/linux/mediatek/filogic/base-files/etc/board.d/02_network
 +++ b/target/linux/mediatek/filogic/base-files/etc/board.d/02_network
-@@ -19,6 +19,7 @@ mediatek_setup_interfaces()
+@@ -18,6 +18,7 @@ mediatek_setup_interfaces()
+ 	netis,nx31|\
  	nokia,ea0326gmp|\
  	mercusys,mr80x-v3|\
- 	routerich,ax3000-v1|\
 +	tplink,ex520v|\
+ 	routerich,ax3000-v1|\
  	zbtlink,zbt-z8103ax|\
  	zbtlink,zbt-z8103ax-c)
- 		ucidef_set_interfaces_lan_wan "lan1 lan2 lan3" eth1
-@@ -317,6 +318,11 @@ mediatek_setup_macs()
+@@ -323,6 +324,11 @@ mediatek_setup_macs()
  		label_mac=$(get_mac_binary "/tmp/tp_data/default-mac" 0)
  		lan_mac=$label_mac
  		;;
@@ -414,10 +414,10 @@ index 90125db143..97e69df36e 100644
  		ln -sf /tmp/factory/radio /lib/firmware/$FIRMWARE
  		;;
 diff --git a/target/linux/mediatek/filogic/base-files/etc/hotplug.d/ieee80211/11_fix_wifi_mac b/target/linux/mediatek/filogic/base-files/etc/hotplug.d/ieee80211/11_fix_wifi_mac
-index d3b84ce6ed..2c5c644104 100644
+index 730d674f62..ae31175461 100644
 --- a/target/linux/mediatek/filogic/base-files/etc/hotplug.d/ieee80211/11_fix_wifi_mac
 +++ b/target/linux/mediatek/filogic/base-files/etc/hotplug.d/ieee80211/11_fix_wifi_mac
-@@ -254,6 +254,11 @@ case "$board" in
+@@ -276,6 +276,11 @@ case "$board" in
  		[ "$PHYNBR" = "0" ] && echo $addr > /sys${DEVPATH}/macaddress
  		[ "$PHYNBR" = "1" ] && macaddr_add $addr 1 > /sys${DEVPATH}/macaddress
  		;;
@@ -444,10 +444,10 @@ index acb8e6b4d1..7e1eaa58a8 100644
  		mount_ubi_part "wlan" "ubi_wlan_factory_data"
  		;;
 diff --git a/target/linux/mediatek/filogic/base-files/lib/upgrade/platform.sh b/target/linux/mediatek/filogic/base-files/lib/upgrade/platform.sh
-index 408c404cb4..b7fbababfd 100644
+index f7cbd40a65..e7ca08e8ab 100644
 --- a/target/linux/mediatek/filogic/base-files/lib/upgrade/platform.sh
 +++ b/target/linux/mediatek/filogic/base-files/lib/upgrade/platform.sh
-@@ -315,6 +315,7 @@ platform_do_upgrade() {
+@@ -277,6 +277,7 @@ platform_do_upgrade() {
  	tplink,archer-ax80-v1|\
  	tplink,archer-ax80-v1-eu|\
  	tplink,be450|\
@@ -456,10 +456,10 @@ index 408c404cb4..b7fbababfd 100644
  		CI_UBIPART="ubi0"
  		nand_do_upgrade "$1"
 diff --git a/target/linux/mediatek/image/filogic.mk b/target/linux/mediatek/image/filogic.mk
-index 0989363644..7a8969c990 100644
+index 1696036692..117ef6da7a 100644
 --- a/target/linux/mediatek/image/filogic.mk
 +++ b/target/linux/mediatek/image/filogic.mk
-@@ -3480,6 +3480,21 @@ define Device/tplink_re6000xd
+@@ -3257,6 +3257,20 @@ define Device/tplink_re6000xd
  endef
  TARGET_DEVICES += tplink_re6000xd
  
@@ -473,8 +473,7 @@ index 0989363644..7a8969c990 100644
 +  KERNEL_INITRAMFS := kernel-bin | lzma | \
 +	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb with-initrd | pad-to 64k
 +  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
-+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware \
-+	kmod-usb3 kmod-usb-ledtrig-usbport
++  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3 kmod-usb-ledtrig-usbport
 +endef
 +TARGET_DEVICES += tplink_ex520v
 +
