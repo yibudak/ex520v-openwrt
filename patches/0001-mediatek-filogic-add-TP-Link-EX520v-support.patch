@@ -1,0 +1,486 @@
+From 394dc33c155fe75a3eee2dec93212061cdbfee39 Mon Sep 17 00:00:00 2001
+From: Yigit Budak <yibudak@gmail.com>
+Date: Sat, 26 Sep 2026 18:10:35 +0300
+Subject: [PATCH] mediatek: filogic: add TP-Link EX520v support
+
+---
+ .../uboot-envtools/files/mediatek_filogic     |   1 +
+ .../mediatek/dts/mt7981b-tplink-ex520v.dts    | 323 ++++++++++++++++++
+ .../filogic/base-files/etc/board.d/01_leds    |   7 +
+ .../filogic/base-files/etc/board.d/02_network |   6 +
+ .../etc/hotplug.d/firmware/11-mt76-caldata    |   3 +
+ .../etc/hotplug.d/ieee80211/11_fix_wifi_mac   |   5 +
+ .../base-files/lib/preinit/09_mount_cfg_part  |   3 +
+ .../base-files/lib/upgrade/platform.sh        |   1 +
+ target/linux/mediatek/image/filogic.mk        |  15 +
+ 9 files changed, 364 insertions(+)
+ create mode 100644 target/linux/mediatek/dts/mt7981b-tplink-ex520v.dts
+
+diff --git a/package/boot/uboot-tools/uboot-envtools/files/mediatek_filogic b/package/boot/uboot-tools/uboot-envtools/files/mediatek_filogic
+index 3ea821a117..62a5423112 100644
+--- a/package/boot/uboot-tools/uboot-envtools/files/mediatek_filogic
++++ b/package/boot/uboot-tools/uboot-envtools/files/mediatek_filogic
+@@ -127,6 +127,7 @@ mercusys,mr90x-v1|\
+ routerich,ax3000|\
+ routerich,ax3000-v1|\
+ tenbay,wr3000k|\
++tplink,ex520v|\
+ tplink,re6000xd|\
+ wavlink,wl-wn536ax6-a)
+ 	ubootenv_add_mtd "u-boot-env" "0x0" "0x20000" "0x20000" "1"
+diff --git a/target/linux/mediatek/dts/mt7981b-tplink-ex520v.dts b/target/linux/mediatek/dts/mt7981b-tplink-ex520v.dts
+new file mode 100644
+index 0000000000..34fe6256f8
+--- /dev/null
++++ b/target/linux/mediatek/dts/mt7981b-tplink-ex520v.dts
+@@ -0,0 +1,323 @@
++// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
++
++/dts-v1/;
++#include <dt-bindings/input/input.h>
++#include <dt-bindings/gpio/gpio.h>
++#include <dt-bindings/leds/common.h>
++
++#include "mt7981b.dtsi"
++
++/ {
++	model = "TP-Link EX520v";
++	compatible = "tplink,ex520v", "mediatek,mt7981";
++
++	aliases {
++		led-boot = &led_power;
++		led-failsafe = &led_internet_amber;
++		led-running = &led_power;
++		led-upgrade = &led_power;
++
++		serial0 = &uart0;
++	};
++
++	chosen {
++		stdout-path = "serial0:115200n8";
++	};
++
++	memory@40000000 {
++		reg = <0 0x40000000 0 0x20000000>;
++		device_type = "memory";
++	};
++
++	keys {
++		compatible = "gpio-keys";
++
++		button-reset {
++			label = "reset";
++			linux,code = <KEY_RESTART>;
++			gpios = <&pio 1 GPIO_ACTIVE_LOW>;
++		};
++
++		button-wps {
++			label = "wps";
++			linux,code = <KEY_WPS_BUTTON>;
++			gpios = <&pio 0 GPIO_ACTIVE_LOW>;
++		};
++
++		button-wifi {
++			label = "wifi";
++			linux,code = <KEY_RFKILL>;
++			gpios = <&pio 30 GPIO_ACTIVE_LOW>;
++		};
++	};
++
++	leds {
++		compatible = "gpio-leds";
++
++		led_power: led-0 {
++			color = <LED_COLOR_ID_GREEN>;
++			function = LED_FUNCTION_POWER;
++			gpios = <&pio 15 GPIO_ACTIVE_LOW>;
++			default-state = "on";
++		};
++
++		led-1 {
++			color = <LED_COLOR_ID_GREEN>;
++			function = LED_FUNCTION_WAN_ONLINE;
++			gpios = <&pio 5 GPIO_ACTIVE_LOW>;
++		};
++
++		led_internet_amber: led-2 {
++			color = <LED_COLOR_ID_AMBER>;
++			function = LED_FUNCTION_WAN_ONLINE;
++			gpios = <&pio 4 GPIO_ACTIVE_HIGH>;
++		};
++
++		led-3 {
++			color = <LED_COLOR_ID_GREEN>;
++			function = LED_FUNCTION_WAN;
++			gpios = <&pio 22 GPIO_ACTIVE_HIGH>;
++		};
++
++		led-4 {
++			color = <LED_COLOR_ID_GREEN>;
++			function = LED_FUNCTION_LAN;
++			function-enumerator = <1>;
++			gpios = <&pio 23 GPIO_ACTIVE_HIGH>;
++		};
++
++		led-5 {
++			color = <LED_COLOR_ID_GREEN>;
++			function = LED_FUNCTION_LAN;
++			function-enumerator = <2>;
++			gpios = <&pio 24 GPIO_ACTIVE_HIGH>;
++		};
++
++		led-6 {
++			color = <LED_COLOR_ID_GREEN>;
++			function = LED_FUNCTION_LAN;
++			function-enumerator = <3>;
++			gpios = <&pio 25 GPIO_ACTIVE_LOW>;
++		};
++
++		led-7 {
++			color = <LED_COLOR_ID_GREEN>;
++			function = "wlan-2ghz";
++			gpios = <&pio 34 GPIO_ACTIVE_LOW>;
++			linux,default-trigger = "phy0tpt";
++		};
++
++		led-8 {
++			color = <LED_COLOR_ID_GREEN>;
++			function = "wlan-5ghz";
++			gpios = <&pio 35 GPIO_ACTIVE_LOW>;
++			linux,default-trigger = "phy1tpt";
++		};
++
++		led-9 {
++			color = <LED_COLOR_ID_GREEN>;
++			function = LED_FUNCTION_WPS;
++			gpios = <&pio 6 GPIO_ACTIVE_LOW>;
++		};
++
++		led-10 {
++			color = <LED_COLOR_ID_GREEN>;
++			function = LED_FUNCTION_USB;
++			gpios = <&pio 7 GPIO_ACTIVE_LOW>;
++		};
++	};
++};
++
++&eth {
++	status = "okay";
++
++	gmac0: mac@0 {
++		compatible = "mediatek,eth-mac";
++		reg = <0>;
++		phy-mode = "2500base-x";
++
++		fixed-link {
++			speed = <2500>;
++			full-duplex;
++			pause;
++		};
++	};
++
++	gmac1: mac@1 {
++		compatible = "mediatek,eth-mac";
++		reg = <1>;
++		phy-mode = "gmii";
++		phy-handle = <&int_gbe_phy>;
++	};
++};
++
++&mdio_bus {
++	switch@1f {
++		compatible = "mediatek,mt7531";
++		reg = <31>;
++		reset-gpios = <&pio 39 GPIO_ACTIVE_HIGH>;
++
++		ports {
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			port@1 {
++				reg = <1>;
++				label = "lan3";
++			};
++
++			port@2 {
++				reg = <2>;
++				label = "lan2";
++			};
++
++			port@3 {
++				reg = <3>;
++				label = "lan1";
++			};
++
++			port@6 {
++				reg = <6>;
++				label = "cpu";
++				ethernet = <&gmac0>;
++				phy-mode = "2500base-x";
++
++				fixed-link {
++					speed = <2500>;
++					full-duplex;
++					pause;
++				};
++			};
++		};
++	};
++};
++
++&pio {
++	spi0_flash_pins: spi0-pins {
++		mux {
++			function = "spi";
++			groups = "spi0", "spi0_wp_hold";
++		};
++
++		conf-pu {
++			pins = "SPI0_CS", "SPI0_HOLD", "SPI0_WP";
++			drive-strength = <MTK_DRIVE_8mA>;
++			bias-pull-up = <MTK_PUPD_SET_R1R0_11>;
++		};
++
++		conf-pd {
++			pins = "SPI0_CLK", "SPI0_MOSI", "SPI0_MISO";
++			drive-strength = <MTK_DRIVE_8mA>;
++			bias-pull-down = <MTK_PUPD_SET_R1R0_11>;
++		};
++	};
++};
++
++&spi0 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&spi0_flash_pins>;
++	status = "okay";
++
++	spi_nand: flash@0 {
++		compatible = "spi-nand";
++		reg = <0>;
++		spi-max-frequency = <52000000>;
++		spi-tx-bus-width = <4>;
++		spi-rx-bus-width = <4>;
++
++		mediatek,nmbm;
++		mediatek,bmt-max-ratio = <1>;
++		mediatek,bmt-max-reserved-blocks = <128>;
++
++		partitions {
++			compatible = "fixed-partitions";
++			#address-cells = <1>;
++			#size-cells = <1>;
++
++			partition@0 {
++				label = "boot";
++				reg = <0x0000000 0x0200000>;
++				read-only;
++			};
++
++			partition@200000 {
++				label = "u-boot-env";
++				reg = <0x0200000 0x0100000>;
++			};
++
++			partition@300000 {
++				label = "misc_ro";
++				reg = <0x0300000 0x0f00000>;
++				read-only;
++			};
++
++			partition@1200000 {
++				label = "misc_rw";
++				reg = <0x1200000 0x0f00000>;
++				read-only;
++			};
++
++			/* OpenWrt; the stock firmware keeps using slot "ubi1" */
++			partition@2100000 {
++				label = "ubi0";
++				reg = <0x2100000 0x2800000>;
++			};
++
++			partition@4900000 {
++				label = "ubi1";
++				reg = <0x4900000 0x2800000>;
++				read-only;
++			};
++
++			partition@7100000 {
++				label = "bflag";
++				reg = <0x7100000 0x0f00000>;
++				read-only;
++			};
++
++			partition@8000000 {
++				label = "misc_rw_bak";
++				reg = <0x8000000 0x0f00000>;
++				read-only;
++			};
++
++			partition@8f00000 {
++				label = "misc_isp";
++				reg = <0x8f00000 0x0f00000>;
++				read-only;
++			};
++
++			partition@9e00000 {
++				label = "runtime_data";
++				reg = <0x9e00000 0x0f00000>;
++				read-only;
++			};
++
++			partition@ad00000 {
++				label = "container";
++				reg = <0xad00000 0xc800000>;
++				read-only;
++			};
++		};
++	};
++};
++
++&uart0 {
++	status = "okay";
++};
++
++&usb_phy {
++	status = "okay";
++};
++
++&watchdog {
++	status = "okay";
++};
++
++&wifi {
++	status = "okay";
++};
++
++&xhci {
++	status = "okay";
++};
+diff --git a/target/linux/mediatek/filogic/base-files/etc/board.d/01_leds b/target/linux/mediatek/filogic/base-files/etc/board.d/01_leds
+index b34a9f1d4f..dc28928ffe 100644
+--- a/target/linux/mediatek/filogic/base-files/etc/board.d/01_leds
++++ b/target/linux/mediatek/filogic/base-files/etc/board.d/01_leds
+@@ -335,6 +335,13 @@ tplink,be450-ubi)
+ 	ucidef_set_led_netdev "wlan2g" "WLAN2G" "blue:wlan-2ghz" "phy0.0-ap0"
+ 	ucidef_set_led_netdev "wlan5g" "WLAN5G" "blue:wlan-5ghz" "phy0.1-ap0"
+ 	;;
++tplink,ex520v)
++	ucidef_set_led_netdev "wan" "WAN" "green:wan" "eth1" "link tx rx"
++	ucidef_set_led_netdev "lan1" "LAN1" "green:lan-1" "lan1" "link tx rx"
++	ucidef_set_led_netdev "lan2" "LAN2" "green:lan-2" "lan2" "link tx rx"
++	ucidef_set_led_netdev "lan3" "LAN3" "green:lan-3" "lan3" "link tx rx"
++	ucidef_set_led_usbport "usb" "USB" "green:usb" "usb1-port1" "usb2-port1"
++	;;
+ tplink,fr365-v1)
+ 	ucidef_set_led_netdev "port2-green-act" "port-2" "green:port2_act" "port2" "link tx rx"
+ 	ucidef_set_led_netdev "port1-green-act" "port-1" "green:sfp" "port1" "link tx rx"
+diff --git a/target/linux/mediatek/filogic/base-files/etc/board.d/02_network b/target/linux/mediatek/filogic/base-files/etc/board.d/02_network
+index 31886924f0..f273558d0f 100644
+--- a/target/linux/mediatek/filogic/base-files/etc/board.d/02_network
++++ b/target/linux/mediatek/filogic/base-files/etc/board.d/02_network
+@@ -19,6 +19,7 @@ mediatek_setup_interfaces()
+ 	nokia,ea0326gmp|\
+ 	mercusys,mr80x-v3|\
+ 	routerich,ax3000-v1|\
++	tplink,ex520v|\
+ 	zbtlink,zbt-z8103ax|\
+ 	zbtlink,zbt-z8103ax-c)
+ 		ucidef_set_interfaces_lan_wan "lan1 lan2 lan3" eth1
+@@ -317,6 +318,11 @@ mediatek_setup_macs()
+ 		label_mac=$(get_mac_binary "/tmp/tp_data/default-mac" 0)
+ 		lan_mac=$label_mac
+ 		;;
++	tplink,ex520v)
++		label_mac=$(get_mac_binary "/tmp/misc_ro/0x0038F1E0" 0)
++		wan_mac=$(macaddr_add "$label_mac" 1)
++		lan_mac=$(macaddr_add "$label_mac" 5)
++		;;
+ 	netgear,wax220)
+ 		lan_mac=$(mtd_get_mac_ascii u-boot-env mac)
+ 		label_mac=$lan_mac
+diff --git a/target/linux/mediatek/filogic/base-files/etc/hotplug.d/firmware/11-mt76-caldata b/target/linux/mediatek/filogic/base-files/etc/hotplug.d/firmware/11-mt76-caldata
+index 90125db143..97e69df36e 100644
+--- a/target/linux/mediatek/filogic/base-files/etc/hotplug.d/firmware/11-mt76-caldata
++++ b/target/linux/mediatek/filogic/base-files/etc/hotplug.d/firmware/11-mt76-caldata
+@@ -14,6 +14,9 @@ case "$FIRMWARE" in
+ 		ln -sf /tmp/tp_data/MT7981_EEPROM.bin \
+ 			/lib/firmware/$FIRMWARE
+ 		;;
++	tplink,ex520v)
++		ln -sf /tmp/misc_ro/0x00440000 /lib/firmware/$FIRMWARE
++		;;
+ 	tplink,f65-v1)
+ 		ln -sf /tmp/factory/radio /lib/firmware/$FIRMWARE
+ 		;;
+diff --git a/target/linux/mediatek/filogic/base-files/etc/hotplug.d/ieee80211/11_fix_wifi_mac b/target/linux/mediatek/filogic/base-files/etc/hotplug.d/ieee80211/11_fix_wifi_mac
+index d3b84ce6ed..2c5c644104 100644
+--- a/target/linux/mediatek/filogic/base-files/etc/hotplug.d/ieee80211/11_fix_wifi_mac
++++ b/target/linux/mediatek/filogic/base-files/etc/hotplug.d/ieee80211/11_fix_wifi_mac
+@@ -254,6 +254,11 @@ case "$board" in
+ 		[ "$PHYNBR" = "0" ] && echo $addr > /sys${DEVPATH}/macaddress
+ 		[ "$PHYNBR" = "1" ] && macaddr_add $addr 1 > /sys${DEVPATH}/macaddress
+ 		;;
++	tplink,ex520v)
++		addr=$(get_mac_binary "/tmp/misc_ro/0x0038F1E0" 0)
++		[ "$PHYNBR" = "0" ] && macaddr_add $addr 6 > /sys${DEVPATH}/macaddress
++		[ "$PHYNBR" = "1" ] && macaddr_add $addr 7 > /sys${DEVPATH}/macaddress
++		;;
+ 	tplink,fr365-v1)
+ 		addr=$(strings /dev/mtd11 | grep 'option macaddr' | awk -F"'" '{print $2}')
+ 		[ "$PHYNBR" = "0" ] && echo $addr > /sys${DEVPATH}/macaddress
+diff --git a/target/linux/mediatek/filogic/base-files/lib/preinit/09_mount_cfg_part b/target/linux/mediatek/filogic/base-files/lib/preinit/09_mount_cfg_part
+index acb8e6b4d1..7e1eaa58a8 100644
+--- a/target/linux/mediatek/filogic/base-files/lib/preinit/09_mount_cfg_part
++++ b/target/linux/mediatek/filogic/base-files/lib/preinit/09_mount_cfg_part
+@@ -26,6 +26,9 @@ preinit_mount_cfg_part() {
+ 	tplink,f65-v1)
+ 		mount_ubi_part "factory" "ubi_factory_data"
+ 		;;
++	tplink,ex520v)
++		mount_ubi_part "misc_ro" "misc_ro"
++		;;
+ 	tplink,fr365-v1)
+ 		mount_ubi_part "wlan" "ubi_wlan_factory_data"
+ 		;;
+diff --git a/target/linux/mediatek/filogic/base-files/lib/upgrade/platform.sh b/target/linux/mediatek/filogic/base-files/lib/upgrade/platform.sh
+index 408c404cb4..b7fbababfd 100644
+--- a/target/linux/mediatek/filogic/base-files/lib/upgrade/platform.sh
++++ b/target/linux/mediatek/filogic/base-files/lib/upgrade/platform.sh
+@@ -315,6 +315,7 @@ platform_do_upgrade() {
+ 	tplink,archer-ax80-v1|\
+ 	tplink,archer-ax80-v1-eu|\
+ 	tplink,be450|\
++	tplink,ex520v|\
+ 	tplink,re6000xd)
+ 		CI_UBIPART="ubi0"
+ 		nand_do_upgrade "$1"
+diff --git a/target/linux/mediatek/image/filogic.mk b/target/linux/mediatek/image/filogic.mk
+index 0989363644..7a8969c990 100644
+--- a/target/linux/mediatek/image/filogic.mk
++++ b/target/linux/mediatek/image/filogic.mk
+@@ -3480,6 +3480,21 @@ define Device/tplink_re6000xd
+ endef
+ TARGET_DEVICES += tplink_re6000xd
+ 
++define Device/tplink_ex520v
++  DEVICE_VENDOR := TP-Link
++  DEVICE_MODEL := EX520v
++  DEVICE_DTS := mt7981b-tplink-ex520v
++  DEVICE_DTS_DIR := ../dts
++  BLOCKSIZE := 256k
++  PAGESIZE := 4096
++  KERNEL_INITRAMFS := kernel-bin | lzma | \
++	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb with-initrd | pad-to 64k
++  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
++  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware \
++	kmod-usb3 kmod-usb-ledtrig-usbport
++endef
++TARGET_DEVICES += tplink_ex520v
++
+ define Device/tplink_f65-v1
+   DEVICE_VENDOR := TP-Link
+   DEVICE_MODEL := F65
+-- 
+2.47.3
+

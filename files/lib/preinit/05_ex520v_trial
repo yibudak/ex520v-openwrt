@@ -1,0 +1,29 @@
+# EX520v safe install: while U-Boot env has ex520v_trial=1, point the stock
+# bootloader back at the stock slot (ubi1) for the next boot. A power cycle
+# then returns to the stock firmware until the install is confirmed with:
+#   fw_setenv tp_boot_idx; fw_setenv ex520v_trial
+
+ex520v_trial_guard() {
+	local mtd cfg=/tmp/ex520v-fw_env.config
+
+	[ "$(board_name)" = "tplink,ex520v" ] || return 0
+
+	mtd=$(grep "\"u-boot-env\"" /proc/mtd | cut -d: -f1)
+	[ -n "$mtd" ] || return 0
+	echo "/dev/$mtd 0x0 0x20000 0x20000 1" > $cfg
+
+	# fw_printenv falls back to an empty default env on CRC errors, so a
+	# damaged env never reads as trial mode and is never written here.
+	[ "$(fw_printenv -c $cfg -n ex520v_trial 2>/dev/null)" = "1" ] || return 0
+
+	if fw_setenv -c $cfg tp_boot_idx 1 &&
+	   [ "$(fw_printenv -c $cfg -n tp_boot_idx 2>/dev/null)" = "1" ]; then
+		echo "armed" > /tmp/ex520v-trial
+		echo "ex520v: trial boot, next boot returns to stock" > /dev/kmsg
+	else
+		echo "failed" > /tmp/ex520v-trial
+		echo "ex520v: trial boot, could not arm stock fallback" > /dev/kmsg
+	fi
+}
+
+boot_hook_add preinit_main ex520v_trial_guard
