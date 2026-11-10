@@ -18,8 +18,8 @@ Sistem → Sistem → Dil menüsünden değiştirilebilir.
 
 ## Durum
 
-Proje deneysel aşamadadır. Aşağıda işaretli özellikler 26 Eylül 2026'da
-çalışan bir cihazda denenmiştir:
+Proje deneysel aşamadadır. Aşağıdaki özellikler çalışan bir cihazda
+denenmiştir. İlk denemeler 26 Eylül 2026'da yapılmıştır.
 
 - [x] RAM'den deneme açılışı
 - [x] Flash'tan açılış, ayarlar yeniden başlatmada korunuyor
@@ -27,7 +27,9 @@ Proje deneysel aşamadadır. Aşağıda işaretli özellikler 26 Eylül 2026'da
 - [x] Fabrika kalibrasyonuyla 2,4 GHz ve 5 GHz Wi-Fi
 - [x] Türkçe yönetim paneli (LuCI)
 - [x] Stok firmware'e geri dönüş
-- [ ] LAN hızı, LED'ler, butonlar, USB (henüz denenmedi)
+- [x] LED'ler, butonlar, USB
+- [x] Donanım hızlandırma (varsayılan olarak kapalıdır, bkz.
+  [Donanım hızlandırma](#donanım-hızlandırma))
 
 Telefon (FXS) portu çalışmaz.
 
@@ -102,6 +104,21 @@ Wi-Fi ilk açılışta etkindir, kablo gerekmez.
 WAN, Türk Telekom fiber için yapılandırılmış gelir (PPPoE, VLAN 35). LuCI →
 Ağ → Arayüzler → WAN ekranında kullanıcı adınızı ve parolanızı girmeniz
 yeterlidir.
+
+## Donanım hızlandırma
+
+Donanım hızlandırma varsayılan olarak kapalıdır. Kapalıyken PPPoE trafiği
+işlemciyi doldurur ve 1 Gbps hatta hız düşük kalır. Ölçümde hız 379 Mbps'te
+kalmıştır. Aşağıdaki iki ayar gerçek cihazda işlemci kullanımını %90'dan
+%5-20'ye indirmiş, Wi-Fi üzerinden 764 Mbps ölçülmüştür:
+
+```sh
+uci set firewall.@defaults[0].flow_offloading=1
+uci set firewall.@defaults[0].flow_offloading_hw=1
+uci commit firewall
+echo "options mt7915e wed_enable=Y" >> /etc/modules.conf
+reboot
+```
 
 ## OpenWrt sürümü
 
