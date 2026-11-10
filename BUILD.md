@@ -1,6 +1,6 @@
 # Derleme
 
-## İmaja neler giriyor
+## İmajın bileşenleri
 
 | Bileşen | Dosya |
 |---|---|
@@ -10,25 +10,25 @@
 | Derleme ayarları | `config/ex520v.diffconfig` |
 | İlk açılış ayarları ve deneme modu | `files/` |
 
-Depoda hazır ikili dosya yok. Wi-Fi firmware'i gibi ikili parçalar, resmi
+Depoda hazır ikili dosya yoktur. Wi-Fi firmware'i gibi ikili parçalar, resmi
 OpenWrt imajlarının da kullandığı OpenWrt paketlerinden gelir.
 
 ## GitHub Actions
 
 `.github/workflows/build.yml`, GitHub'ın `ubuntu-24.04` runner'ında
 `./build.sh` çalıştırır. İmajlara SHA-256 özetlerini ve bir attestation ekler,
-sonra hepsini workflow artifact'ı olarak yükler.
+ardından hepsini workflow artifact'ı olarak yükler.
 
-Workflow `main`'e her push'ta, pull request'lerde ve Actions sekmesinden elle
-başlatınca çalışır. `v` ile başlayan bir etiket push'larsan imajlar Releases
-sayfasına da gider.
+Workflow `main` dalına yapılan her push'ta, pull request'lerde ve Actions
+sekmesinden elle başlatıldığında çalışır. `v` ile başlayan bir etiket
+push'landığında imajlar Releases sayfasına da eklenir.
 
-Kendi hesabında derlemek için depoyu fork'la. Fork'un Actions sekmesinde
-**build** workflow'unu seç ve **Run workflow**'a bas.
+Kendi hesabınızda derlemek için depoyu fork'layın. Fork'un Actions sekmesinde
+**build** workflow'unu seçip **Run workflow** düğmesine tıklayın.
 
-## İmajı doğrulama
+## İmajın doğrulanması
 
-İmajı bu deponun workflow'unun derlediğini kontrol et
+İmajın bu deponun workflow'u tarafından derlendiğini doğrulayın
 ([GitHub CLI](https://cli.github.com/) gerekir):
 
 ```sh
@@ -36,22 +36,22 @@ gh attestation verify openwrt-*-tplink_ex520v-squashfs-sysupgrade.bin \
   -R yibudak/ex520v-openwrt
 ```
 
-Dosyanın inerken bozulmadığını kontrol et:
+Dosyanın indirme sırasında bozulmadığını doğrulayın:
 
 ```sh
 sha256sum -c --ignore-missing SHA256SUMS.ex520v    # macOS: shasum -a 256 -c
 ```
 
-## Kendin derle
+## Yerel derleme
 
-Gerekenler:
+Gereksinimler:
 
-- x86_64 Linux. CI, Ubuntu 24.04 kullanıyor. macOS'ta OrbStack, Windows'ta
-  WSL2 gibi bir Linux ortamı kur.
-- 25 GB boş disk ve internet bağlantısı.
-- Normal bir kullanıcı hesabı. Derlemeyi `root` olarak çalıştırma.
+- x86_64 Linux. CI, Ubuntu 24.04 kullanır. macOS'ta OrbStack, Windows'ta WSL2
+  gibi bir Linux ortamı kurun.
+- 25 GB boş disk alanı ve internet bağlantısı.
+- Normal bir kullanıcı hesabı. Derlemeyi `root` olarak çalıştırmayın.
 
-Bağımlılıkları kur (CI'daki listenin aynısı):
+Bağımlılıkları kurun (CI'daki listenin aynısı):
 
 ```sh
 sudo apt-get update
@@ -61,7 +61,7 @@ sudo apt-get install -y build-essential clang flex bison g++ gawk \
   zlib1g-dev file wget zstd
 ```
 
-Derle:
+Derleyin:
 
 ```sh
 git clone https://github.com/yibudak/ex520v-openwrt.git
@@ -69,7 +69,7 @@ cd ex520v-openwrt
 ./build.sh        # paralel iş sayısı için: ./build.sh 4
 ```
 
-`build.sh` şunları yapar:
+`build.sh` şu adımları uygular:
 
 1. OpenWrt'yi `openwrt/` klasörüne klonlar ve sabit commit'e geçer.
 2. `patches/` altındaki patch'i uygular.
@@ -80,37 +80,37 @@ cd ex520v-openwrt
 
 İlk derleme, toolchain'i de derlediği için uzun sürer. Sonraki derlemeler
 hazır parçaları yeniden kullanır. Sıfırdan derlemek için
-`rm -rf openwrt && ./build.sh` çalıştır.
+`rm -rf openwrt && ./build.sh` komutunu çalıştırın.
 
-İmajlar `openwrt/bin/targets/mediatek/filogic/` klasörüne düşer:
+İmajlar `openwrt/bin/targets/mediatek/filogic/` klasöründe oluşur:
 
-| Dosya | Ne işe yarar |
+| Dosya | İşlevi |
 |---|---|
 | `*-tplink_ex520v-initramfs-kernel.bin` | Deneme imajı, RAM'den açılır |
 | `*-tplink_ex520v-squashfs-sysupgrade.bin` | Flash imajı |
 | `sha256sums` | Klasördeki dosyaların SHA-256 özetleri |
 
-## Kendi derlemeni CI ile karşılaştır
+## Yerel derlemenin CI ile karşılaştırılması
 
 OpenWrt, aynı kaynaktan aynı imajı üretmeyi hedefler. Dosya tarihlerini commit
 tarihinden alır. `config/ex520v.diffconfig` de kernel'e yazılan kullanıcı ve
-makine adını sabitler. Kendi imajının özetini al:
+makine adını sabitler. Kendi imajınızın özetini alın:
 
 ```sh
 sha256sum openwrt/bin/targets/mediatek/filogic/*tplink_ex520v*
 ```
 
-Sonucu release'teki `SHA256SUMS.ex520v` ile karşılaştır. Özetler farklı
-çıkarsa [diffoscope](https://diffoscope.org/) ile iki imajın farkını
-görebilirsin.
+Sonucu release'teki `SHA256SUMS.ex520v` ile karşılaştırın. Özetler farklı
+çıkarsa iki imajın farkını [diffoscope](https://diffoscope.org/) ile
+inceleyebilirsiniz.
 
 ## Değişiklik yapmak
 
-- **Paket eklemek:** `config/ex520v.diffconfig`'e `CONFIG_PACKAGE_<paket>=y`
-  satırını ekle.
-- **İlk açılış ayarları:** `files/etc/uci-defaults/` altındaki betikleri
-  düzenle. `files/` altındaki her dosya imaja girer. Kendi Wi-Fi parolanı ya da
-  PPPoE bilgini buraya koyma.
-- **OpenWrt'yi güncellemek:** `build.sh`'taki `OPENWRT_COMMIT`'i ve
-  `config/feeds.conf`'taki commit'leri aynı kararlı dalın yeni commit'leriyle
-  değiştir. Patch uygulanmazsa yeni tabana göre düzenle.
+- Paket eklemek için `config/ex520v.diffconfig` dosyasına
+  `CONFIG_PACKAGE_<paket>=y` satırını ekleyin.
+- İlk açılış ayarlarını değiştirmek için `files/etc/uci-defaults/` altındaki
+  betikleri düzenleyin. `files/` altındaki her dosya imaja girer. Kendi Wi-Fi
+  parolanızı ya da PPPoE bilginizi buraya koymayın.
+- OpenWrt'yi güncellemek için `build.sh` içindeki `OPENWRT_COMMIT` değerini ve
+  `config/feeds.conf` içindeki commit'leri aynı kararlı dalın yeni
+  commit'leriyle değiştirin. Patch uygulanmazsa yeni tabana göre düzenleyin.
