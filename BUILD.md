@@ -10,7 +10,7 @@
 | Derleme ayarları | `config/ex520v.diffconfig` |
 | İlk açılış ayarları ve deneme modu | `files/` |
 
-Depoda hazır ikili dosya yoktur. Wi-Fi firmware'i gibi ikili parçalar, resmi
+Depoda hazır binary yoktur. Wi-Fi firmware'i gibi binary parçalar, resmi
 OpenWrt imajlarının da kullandığı OpenWrt paketlerinden gelir.
 
 ## GitHub Actions
